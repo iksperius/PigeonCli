@@ -4,11 +4,26 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <format>
 #include <sys/wait.h>
 
 int main() {
 
     std::string line;
+
+    enum class Output_mode{
+        None,
+        Overwrite,
+        Append
+    };
+
+    struct command {
+        std::vector<std::string> arg;
+        std::string input_file;
+        std::string output_file;
+        Output_mode output_mode = Output_mode::None;
+    };
+
 
     while (true) {
         //Parser

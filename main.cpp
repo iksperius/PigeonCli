@@ -18,26 +18,26 @@ int main() {
         std::vector<std::string> temp_command;
         std::string temp_arg;
         bool in_quote = false;
-        for (char c : line) {
-            if (c == '"') {
+        for (int i = 0; i < line.size(); i++) {
+            if (line[i] == '"') {
                 in_quote = !in_quote;
                 continue;
             }
 
             //quote handling
             if (in_quote) {
-                temp_arg += c;
+                temp_arg += line[i];
                 continue;
             }
 
-            if (c == ' ') {
+            if (line[i] == ' ') {
                 if (!temp_arg.empty()) {
                     temp_command.push_back(temp_arg);
                     temp_arg.clear();
                 }
                 continue;
             }
-            if (c == '|') {
+            if (line[i] == '|') {
                 if (!temp_arg.empty()) {
                     temp_command.push_back(temp_arg);
                 }
@@ -48,8 +48,18 @@ int main() {
                 temp_arg.clear();
                 continue;
             }
+            //home handling
+            if (line[i] == '~' && !in_quote && temp_arg.empty()) {
+                if (i + 1 == line.size() || line[i + 1] == '/' || line[i + 1] == ' ' || line[i + 1] == '|') {
+                    char* home = getenv("HOME");
+                    if (home != nullptr) {
+                        temp_arg += home;
+                        continue;
+                    }
+                }
+            }
 
-            temp_arg += c;
+            temp_arg += line[i];
         }
         if (in_quote) {
             std::cout<<"Quote not closed" << std::endl;
@@ -73,9 +83,6 @@ int main() {
         if (commands[0][0] == "cd") {
             char* home = getenv("HOME");
             if (commands[0].size() > 1) {
-                if (commands[0][1][0] == '~' && home != nullptr) {
-                    commands[0][1] = getenv("HOME") + commands[0][1].substr(1);
-                }
                 if (chdir(commands[0][1].c_str()) == -1) {
                     std::cout<<"Not a valid directory"<<std::endl;
                 }

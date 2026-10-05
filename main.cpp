@@ -11,6 +11,13 @@ int main() {
 
     std::string line;
 
+    enum class Redirect_state {
+        None,
+        Input,
+        Output,
+        Append
+    };
+
     enum class Output_mode{
         None,
         Overwrite,
@@ -18,7 +25,7 @@ int main() {
     };
 
     struct command {
-        std::vector<std::string> arg;
+        std::vector<std::string> args;
         std::string input_file;
         std::string output_file;
         Output_mode output_mode = Output_mode::None;
@@ -29,37 +36,89 @@ int main() {
         //Parser
         std::cout << ">";
         std::getline(std::cin, line);
-        std::vector<std::vector<std::string>> commands;
-        std::vector<std::string> temp_command;
+        std::vector<command> commands;
+        command temp_command;
         std::string temp_arg;
         bool in_quote = false;
+        bool syntax_error = false;
+        Redirect_state redir_state = Redirect_state::None;
+
+        //Lambda function for pushing arguments, input/output file names
+        auto arg_push = [&]() {
+            if (redir_state == Redirect_state::Input) {
+                temp_command.input_file = temp_arg;
+            }
+            else if (redir_state == Redirect_state::Output) {
+                temp_command.output_file = temp_arg;
+                temp_command.output_mode = Output_mode::Overwrite;
+            }
+            else if (redir_state == Redirect_state::Append) {
+                temp_command.output_file = temp_arg;
+                temp_command.output_mode = Output_mode::Append;
+            }
+            else {
+                temp_command.args.push_back(temp_arg);
+            }
+            temp_arg.clear();
+            redir_state = Redirect_state::None;
+        };
+
         for (int i = 0; i < line.size(); i++) {
+            bool hasNext = i + 1 < line.size();
+
+            //quote handling
             if (line[i] == '"') {
                 in_quote = !in_quote;
                 continue;
             }
 
-            //quote handling
+            //text in quote handling
             if (in_quote) {
                 temp_arg += line[i];
                 continue;
             }
 
+            if (line[i] == '<') {
+                if (!temp_arg.empty()) {
+                    arg_push();
+                }
+                redir_state = Redirect_state::Input;
+                continue;
+            }
+            if (line[i] == '>') {
+                if (!temp_arg.empty()) {
+                    arg_push();
+                }
+                if (hasNext  && line[i+1] == '>') {
+                    redir_state = Redirect_state::Append;
+                    i++;
+                }
+                else {
+                    redir_state = Redirect_state::Output;
+                }
+                continue;
+            }
+
+
             if (line[i] == ' ') {
                 if (!temp_arg.empty()) {
-                    temp_command.push_back(temp_arg);
-                    temp_arg.clear();
+                    arg_push();
                 }
                 continue;
             }
             if (line[i] == '|') {
                 if (!temp_arg.empty()) {
-                    temp_command.push_back(temp_arg);
+                    arg_push();
                 }
-                if (!temp_command.empty()) {
+                if (redir_state != Redirect_state::None) {
+                    std::cout<<"Syntax error near unexpected token '|" <<std::endl;
+                    syntax_error = true;
+                    break;
+                }
+                if (!temp_command.args.empty()) {
                     commands.push_back(temp_command);
                 }
-                temp_command.clear();
+                temp_command = command{};
                 temp_arg.clear();
                 continue;
             }
@@ -80,10 +139,17 @@ int main() {
             std::cout<<"Quote not closed" << std::endl;
             continue;
         }
-        if (!temp_arg.empty()) {
-            temp_command.push_back(temp_arg);
+        if (syntax_error) {
+            continue;
         }
-        if (!temp_command.empty()) {
+        if (redir_state != Redirect_state::None) {
+            std::cout << "Expected a string, but found end of the input" <<std::endl;
+            continue;
+        }
+        if (!temp_arg.empty()) {
+            arg_push();
+        }
+        if (!temp_command.args.empty()) {
             commands.push_back(temp_command);
         }
         if (commands.empty()) {
@@ -92,13 +158,13 @@ int main() {
 
 
 
-        if (commands[0][0] == "exit") {
+        if (commands[0].args[0] == "exit") {
             break;
         }
-        if (commands[0][0] == "cd") {
+        if (commands[0].args[0] == "cd") {
             char* home = getenv("HOME");
-            if (commands[0].size() > 1) {
-                if (chdir(commands[0][1].c_str()) == -1) {
+            if (commands[0].args.size() > 1) {
+                if (chdir(commands[0].args[1].c_str()) == -1) {
                     std::cout<<"Not a valid directory"<<std::endl;
                 }
                 continue;
@@ -138,7 +204,7 @@ int main() {
 
                 //preparing arguments array
                 std::vector<char*> argv;
-                for (std::string& word : commands[i]) {
+                for (std::string& word : commands[i].args) {
                         argv.push_back((char*)word.c_str());
                 }
                 argv.push_back(nullptr);

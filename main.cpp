@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <format>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 int main() {
 
@@ -142,13 +143,14 @@ int main() {
         if (syntax_error) {
             continue;
         }
+        if (!temp_arg.empty()) {
+            arg_push();
+        }
         if (redir_state != Redirect_state::None) {
             std::cout << "Expected a string, but found end of the input" <<std::endl;
             continue;
         }
-        if (!temp_arg.empty()) {
-            arg_push();
-        }
+
         if (!temp_command.args.empty()) {
             commands.push_back(temp_command);
         }
@@ -175,6 +177,13 @@ int main() {
             }
             continue;
         }
+        //TODO: Add funny pigeon command
+        // if (commands[0].args[0] == "pigon") {
+        //     std::cout<<"Pigon"<<std::endl;
+        //     continue;
+        // }
+
+        //TODO: add clipboard for commands, sc list, sc add etc
 
 
         //Multi commands handling
@@ -194,12 +203,44 @@ int main() {
             }
             // == 0 -> child process
             else if (p_id == 0) {
+                //pipeline
                 if (i != 0) {
                     dup2( in_fd, 0);
                     close(in_fd);
                 }
                 if (hasNext) {
                     dup2( fd[1], 1);
+                }
+
+                // input/output
+                int f_fd = -1;
+                if (!commands[i].input_file.empty()) {
+                    f_fd = open(commands[i].input_file.c_str(), O_RDONLY);
+                    if (f_fd >= 0) {
+                        dup2(f_fd, 0);
+                        close(f_fd);
+                    }
+                    else {
+                        perror("No input file found");
+                        exit(1);
+                    }
+                }
+                if (!commands[i].output_file.empty()) {
+                    if (commands[i].output_mode == Output_mode::Append) {
+                        f_fd = open(commands[i].output_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+                    }
+                    else if (commands[i].output_mode == Output_mode::Overwrite) { //0644 - permissions for file
+                        f_fd = open(commands[i].output_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    }
+                    if (f_fd >= 0) {
+                        dup2(f_fd, 1);
+                        close(f_fd);
+                    }
+                    else {
+                        perror("Output file could not be created");
+                        exit(1);
+                    }
+
                 }
 
                 //preparing arguments array

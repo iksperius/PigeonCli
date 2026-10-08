@@ -228,16 +228,48 @@ bool execute(std::vector<command> commands) {
                 std::cout << "Usage: pigeon save <name> \"command\" " << std::endl;
                 return true;
             }
-            std::ofstream file(file_location, std::ios::app);
-            if (!file) {
+            std::vector<std::string> temp_commands_file;
+            std::string temp_command = commands[0].args[2] + ":";
+            for (int i = 3; i < commands[0].args.size(); i++) {
+                temp_command += commands[0].args[i] + ' ';
+            }
+
+
+            //TODO: switch to lambda
+            std::ifstream infile(file_location);
+            bool replaced = false;
+            if (infile.is_open()) {
+                while (getline(infile, line)) {
+                    size_t col_pos = line.find(':');
+                    if (col_pos == std::string::npos) {
+                        continue;
+                    }
+                    if (commands[0].args[2] == line.substr(0, col_pos)) {
+                        temp_commands_file.push_back(temp_command);
+                        replaced = true;
+                        continue;
+                    }
+                    temp_commands_file.push_back(line);
+                }
+
+                infile.close();
+            }
+            if (!replaced) {
+                temp_commands_file.push_back(temp_command);
+            }
+
+
+
+            std::ofstream outfile(file_location);
+            if (!outfile) {
                 std::cout << "Can't open file" << std::endl;
                 return true;
             }
-            file << commands[0].args[2] << ":";
-            for (int i = 3; i < commands[0].args.size(); i++) {
-                file << commands[0].args[i] << " ";
+
+            for (const auto& l : temp_commands_file) {
+                outfile << l << std::endl;
             }
-            file << std::endl;
+            outfile.close();
             return true;
         }
 
@@ -247,20 +279,43 @@ bool execute(std::vector<command> commands) {
                 std::cout << "Usage: pigeon run <name> \"command\" " << std::endl;
                 return true;
             }
+            //TODO: switch to lambda
             std::ifstream file(file_location);
             std::string raw_command;
-            while (getline(file, line, ' ')) {
+            bool found = false;
+            while (getline(file, line)) {
                 size_t col_pos = line.find(':');
                 if (col_pos == std::string::npos) {
-                    std::cout << "Command alias not found" << std::endl;
                     continue;
                 }
                 if (commands[0].args[2] == line.substr(0, col_pos)) {
+                    found = true;
+                    raw_command = line.substr(col_pos + 1);
+                    std::vector<command> new_cmd;
+                    try {
+                        new_cmd = parser(raw_command);
+                        if (new_cmd.empty()) {
+                            continue;
+                        }
+                    }
+                    catch (const std::exception &e) {
+                        std::cout << e.what() << std::endl;
+                        continue;
+                    }
+                    return execute(new_cmd);
                 }
+            }
+            if (found == false) {
+                std::cout << "Command alias not found" << std::endl;
+                return true;
             }
         }
         if (commands[0].args[1] == "list") {
             std::ifstream file(file_location);
+            if (!file) {
+                std::cout << "Can't open file" << std::endl;
+                return true;
+            }
             int i = 1;
             while (getline(file, line)) {
                 std::cout << i << ". " << line << std::endl;
@@ -269,6 +324,27 @@ bool execute(std::vector<command> commands) {
             return true;
         }
         if (commands[0].args[1] == "delete") {
+            //TODO: switch to lambda
+            std::ifstream infile(file_location);
+            std::vector<std::string> temp_file_contents;
+            if (!infile) {
+                std::cout << "Can't open file" << std::endl;
+                return true;
+            }
+            while (getline(infile, line)) {
+                size_t col_pos = line.find(':');
+                if (col_pos == std::string::npos || commands[0].args[2] == line.substr(0, col_pos)) {
+                    continue;
+                }
+                temp_file_contents.push_back(line);
+            }
+            infile.close();
+
+            std::ofstream outfile(file_location);
+            for (const auto& l : temp_file_contents) {
+                outfile << l << std::endl;
+            }
+            outfile.close();
             return true;
         }
     }

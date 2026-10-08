@@ -4,12 +4,14 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
-#include <format>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <filesystem>
+#include <fstream>
+
+void parser();
 
 int main() {
-
     std::string line;
 
     enum class Redirect_state {
@@ -19,7 +21,7 @@ int main() {
         Append
     };
 
-    enum class Output_mode{
+    enum class Output_mode {
         None,
         Overwrite,
         Append
@@ -48,16 +50,13 @@ int main() {
         auto arg_push = [&]() {
             if (redir_state == Redirect_state::Input) {
                 temp_command.input_file = temp_arg;
-            }
-            else if (redir_state == Redirect_state::Output) {
+            } else if (redir_state == Redirect_state::Output) {
                 temp_command.output_file = temp_arg;
                 temp_command.output_mode = Output_mode::Overwrite;
-            }
-            else if (redir_state == Redirect_state::Append) {
+            } else if (redir_state == Redirect_state::Append) {
                 temp_command.output_file = temp_arg;
                 temp_command.output_mode = Output_mode::Append;
-            }
-            else {
+            } else {
                 temp_command.args.push_back(temp_arg);
             }
             temp_arg.clear();
@@ -90,11 +89,10 @@ int main() {
                 if (!temp_arg.empty()) {
                     arg_push();
                 }
-                if (hasNext  && line[i+1] == '>') {
+                if (hasNext && line[i + 1] == '>') {
                     redir_state = Redirect_state::Append;
                     i++;
-                }
-                else {
+                } else {
                     redir_state = Redirect_state::Output;
                 }
                 continue;
@@ -112,7 +110,7 @@ int main() {
                     arg_push();
                 }
                 if (redir_state != Redirect_state::None) {
-                    std::cout<<"Syntax error near unexpected token '|" <<std::endl;
+                    std::cout << "Syntax error near unexpected token '|" << std::endl;
                     syntax_error = true;
                     break;
                 }
@@ -126,7 +124,7 @@ int main() {
             //home handling
             if (line[i] == '~' && !in_quote && temp_arg.empty()) {
                 if (i + 1 == line.size() || line[i + 1] == '/' || line[i + 1] == ' ' || line[i + 1] == '|') {
-                    char* home = getenv("HOME");
+                    char *home = getenv("HOME");
                     if (home != nullptr) {
                         temp_arg += home;
                         continue;
@@ -137,7 +135,7 @@ int main() {
             temp_arg += line[i];
         }
         if (in_quote) {
-            std::cout<<"Quote not closed" << std::endl;
+            std::cout << "Quote not closed" << std::endl;
             continue;
         }
         if (syntax_error) {
@@ -147,7 +145,7 @@ int main() {
             arg_push();
         }
         if (redir_state != Redirect_state::None) {
-            std::cout << "Expected a string, but found end of the input" <<std::endl;
+            std::cout << "Expected a string, but found end of the input" << std::endl;
             continue;
         }
 
@@ -159,31 +157,98 @@ int main() {
         }
 
 
-
         if (commands[0].args[0] == "exit") {
             break;
         }
         if (commands[0].args[0] == "cd") {
-            char* home = getenv("HOME");
+            char *home = getenv("HOME");
             if (commands[0].args.size() > 1) {
                 if (chdir(commands[0].args[1].c_str()) == -1) {
-                    std::cout<<"Not a valid directory"<<std::endl;
+                    std::cout << "Not a valid directory" << std::endl;
                 }
                 continue;
             }
             if (home != nullptr) chdir(getenv("HOME"));
             else {
-                std::cout<<"Home is not set"<<std::endl;
+                std::cout << "Home is not set" << std::endl;
             }
             continue;
         }
-        //TODO: Add funny pigeon command
-        // if (commands[0].args[0] == "pigon") {
-        //     std::cout<<"Pigon"<<std::endl;
-        //     continue;
-        // }
 
-        //TODO: add clipboard for commands, sc list, sc add etc
+        //pigeon
+        //saving commands
+        //arg 0 - command
+        //arg 1 - action
+        //arg 2 - name
+
+        //TODO:
+        // - named/listed variables for commands
+        //      - seperate parser and execute to functions
+        //      - parse whole command again after pigeon run, apply variables
+        if (commands[0].args[0] == "pigeon") {
+            char *home = getenv("HOME");
+            if (home == nullptr) {
+                std::cout << "Can't open file" << std::endl;
+                continue;
+            }
+            std::string file_location = static_cast<std::string>(home) + "/.config/PigeonCli/saved_commands";
+            //trim saved_commands file from path
+            std::filesystem::create_directories(std::filesystem::path(file_location).parent_path());
+
+            if (commands[0].args.size() < 2) {
+                std::cout << "Usage: pigeon <save|run|list|delete> ..." << std::endl;
+                continue;
+            }
+
+
+            if (commands[0].args[1] == "save") {
+                if (commands[0].args.size() < 3) {
+                    std::cout << "Usage: pigeon save <name> \"command\" " << std::endl;
+                    continue;
+                }
+                std::ofstream file(file_location, std::ios::app);
+                if (!file) {
+                    std::cout << "Can't open file" << std::endl;
+                    continue;
+                }
+                file << commands[0].args[2] << ":";
+                for (int i = 3; i < commands[0].args.size(); i++) {
+                    file << commands[0].args[i] << " ";
+                }
+                file << std::endl;
+                continue;
+            }
+
+
+            if (commands[0].args[1] == "run") {
+                if (commands[0].args.size() < 3) {
+                    std::cout << "Usage: pigeon run <name> \"command\" " << std::endl;
+                    continue;
+                }
+                std::ifstream file(file_location);
+                std::string raw_command;
+                while (getline(file, line , ' ')) {
+                    size_t col_pos = line.find(':');
+                    if (col_pos == std::string::npos) {
+                        std::cout << "Command alias not found" << std::endl;
+                        continue;
+                    }
+                    if (commands[0].args[2] == line.substr(0, col_pos) ) {
+
+                    }
+                }
+            }
+            if (commands[0].args[1] == "list") {
+                std::ifstream file(file_location);
+                int i = 1;
+                while (getline(file, line)) {
+                    std::cout<< i << ". " <<line<<std::endl;
+                    i++;
+                }
+            }
+            if (commands[0].args[1] == "delete") {
+            }
+        }
 
 
         //Multi commands handling
@@ -199,17 +264,17 @@ int main() {
 
             // < 0 -> no child created
             if (p_id < 0) {
-                std::cout<<"Child not created" << std::endl;
+                std::cout << "Child not created" << std::endl;
             }
             // == 0 -> child process
             else if (p_id == 0) {
                 //pipeline
                 if (i != 0) {
-                    dup2( in_fd, 0);
+                    dup2(in_fd, 0);
                     close(in_fd);
                 }
                 if (hasNext) {
-                    dup2( fd[1], 1);
+                    dup2(fd[1], 1);
                 }
 
                 // input/output
@@ -219,8 +284,7 @@ int main() {
                     if (f_fd >= 0) {
                         dup2(f_fd, 0);
                         close(f_fd);
-                    }
-                    else {
+                    } else {
                         perror("No input file found");
                         exit(1);
                     }
@@ -228,25 +292,23 @@ int main() {
                 if (!commands[i].output_file.empty()) {
                     if (commands[i].output_mode == Output_mode::Append) {
                         f_fd = open(commands[i].output_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
-                    }
-                    else if (commands[i].output_mode == Output_mode::Overwrite) { //0644 - permissions for file
+                    } else if (commands[i].output_mode == Output_mode::Overwrite) {
+                        //0644 - permissions for file
                         f_fd = open(commands[i].output_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
                     }
                     if (f_fd >= 0) {
                         dup2(f_fd, 1);
                         close(f_fd);
-                    }
-                    else {
+                    } else {
                         perror("Output file could not be created");
                         exit(1);
                     }
-
                 }
 
                 //preparing arguments array
-                std::vector<char*> argv;
-                for (std::string& word : commands[i].args) {
-                        argv.push_back((char*)word.c_str());
+                std::vector<char *> argv;
+                for (std::string &word: commands[i].args) {
+                    argv.push_back(const_cast<char*>(word.c_str()));
                 }
                 argv.push_back(nullptr);
 
@@ -270,14 +332,18 @@ int main() {
                 }
 
                 pids.push_back(p_id);
-
             }
         }
         //waiting for all child processes to finish
-        for (pid_t p_id : pids) {
+        for (pid_t p_id: pids) {
             waitpid(p_id, nullptr, 0);
         }
     }
 
     return 0;
+}
+
+
+void parser() {
+
 }

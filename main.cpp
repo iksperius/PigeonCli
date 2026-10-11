@@ -11,6 +11,34 @@
 #include <stdexcept>
 
 
+/*TODO:
+ *  - arrow key selection
+ *  - command not found
+ *  - ctrl <key> actions <- implementing gnu readline
+ *  - history (searching in history, start typing then press up and down to do backward and forward searches through my history for commands starting with what I've just typed)
+ *  -
+ */
+
+
+// TODO (Pigeon I/O Refactor):
+    // - Extract repetitive read/write logic for ~/.config/PigeonCli/saved_commands.
+    // - Option A: Load the file into std::unordered_map<std::string, std::string> (in-memory caching).
+    // - Option B: Stream-based processor utilizing a lambda predicate.
+
+    // TODO (Pigeon Command Arguments):
+    // - In 'pigeon run <alias> [args...]': replace positional placeholders ($1, $2, ...) in the stored template.
+    // - Re-feed the expanded string through parser() before invoking execute().
+
+    // TODO (Shell Robustness & Error Handling):
+    // - main(): Check std::cin stream state after getline(); terminate loop cleanly on EOF (Ctrl+D).
+    // - execute(): Close open pipe ends in the parent process if fork() fails (returns -1) to prevent descriptor leaks.
+    // - execute(): Guard against empty commands[0].args before indexing args[0].
+
+    // TODO (Signals & Process Management):
+    // - Handle SIGINT (Ctrl+C) so it interrupts child execution rather than killing the shell.
+    // - Inspect exit status in waitpid() via WIFEXITED and WEXITSTATUS macros.
+
+
 enum class Redirect_state {
     None,
     Input,
@@ -207,6 +235,12 @@ bool execute(std::vector<command> commands) {
     //      - seperate parser and execute to functions
     //      - parse whole command again after pigeon run, apply variables
     if (commands[0].args[0] == "pigeon") {
+
+        auto  = []() {
+
+        };
+
+
         std::string line;
         char *home = getenv("HOME");
         if (home == nullptr) {
@@ -236,14 +270,19 @@ bool execute(std::vector<command> commands) {
 
 
             //TODO: switch to lambda
+            //selecting command based on name
             std::ifstream infile(file_location);
             bool replaced = false;
             if (infile.is_open()) {
                 while (getline(infile, line)) {
+                    //colon is used to separate name and command
                     size_t col_pos = line.find(':');
                     if (col_pos == std::string::npos) {
                         continue;
                     }
+                    //args[0] - pigeon
+                    //args[1] - command mode (save)
+                    //args[2] - <name>
                     if (commands[0].args[2] == line.substr(0, col_pos)) {
                         temp_commands_file.push_back(temp_command);
                         replaced = true;

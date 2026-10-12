@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
+#include <unordered_map>
 
 
 /*TODO:
@@ -235,21 +236,43 @@ bool execute(std::vector<command> commands) {
     //      - seperate parser and execute to functions
     //      - parse whole command again after pigeon run, apply variables
     if (commands[0].args[0] == "pigeon") {
+        std::unordered_map<std::string, std::string> pigeon_commands;
 
-        auto  = []() {
-
-        };
-
-
-        std::string line;
+        //loading file to map
         char *home = getenv("HOME");
         if (home == nullptr) {
             std::cout << "Can't open file" << std::endl;
             return true;
         }
         std::string file_location = static_cast<std::string>(home) + "/.config/PigeonCli/saved_commands";
+        std::string temp_file_location = static_cast<std::string>(home) + "/.config/PigeonCli/saved_commands.tmp";
         //trim saved_commands file from path
         std::filesystem::create_directories(std::filesystem::path(file_location).parent_path());
+
+        //filling pigeon_commands map with commands from file
+        std::ifstream infile(file_location);
+        if (infile.is_open()) {
+            std::string line;
+            while (getline(infile, line)) {
+                //colon is used to separate name and command
+                size_t col_pos = line.find(':');
+                if (col_pos == std::string::npos) {
+                    continue;
+                }
+                pigeon_commands[line.substr(0,col_pos)] = line.substr(col_pos+1);
+            }
+        }
+        infile.close();
+
+        //writes pigeon_commands map to file
+        auto sync_file = [&]() {
+            std::ofstream temp_outfile(temp_file_location, std::ios::trunc);
+            for (auto& [name, command] : pigeon_commands) {
+                temp_outfile << name << ':' << command << std::endl;
+            }
+            temp_outfile.close();
+            std::filesystem::rename(temp_file_location, file_location);
+        };
 
         if (commands[0].args.size() < 2) {
             std::cout << "Usage: pigeon <save|run|list|delete> ..." << std::endl;
@@ -262,53 +285,13 @@ bool execute(std::vector<command> commands) {
                 std::cout << "Usage: pigeon save <name> \"command\" " << std::endl;
                 return true;
             }
-            std::vector<std::string> temp_commands_file;
-            std::string temp_command = commands[0].args[2] + ":";
+            std::string temp_command;
             for (int i = 3; i < commands[0].args.size(); i++) {
                 temp_command += commands[0].args[i] + ' ';
             }
+            pigeon_commands[commands[0].args[2]] = temp_command;
 
-
-            //TODO: switch to lambda
-            //selecting command based on name
-            std::ifstream infile(file_location);
-            bool replaced = false;
-            if (infile.is_open()) {
-                while (getline(infile, line)) {
-                    //colon is used to separate name and command
-                    size_t col_pos = line.find(':');
-                    if (col_pos == std::string::npos) {
-                        continue;
-                    }
-                    //args[0] - pigeon
-                    //args[1] - command mode (save)
-                    //args[2] - <name>
-                    if (commands[0].args[2] == line.substr(0, col_pos)) {
-                        temp_commands_file.push_back(temp_command);
-                        replaced = true;
-                        continue;
-                    }
-                    temp_commands_file.push_back(line);
-                }
-
-                infile.close();
-            }
-            if (!replaced) {
-                temp_commands_file.push_back(temp_command);
-            }
-
-
-
-            std::ofstream outfile(file_location);
-            if (!outfile) {
-                std::cout << "Can't open file" << std::endl;
-                return true;
-            }
-
-            for (const auto& l : temp_commands_file) {
-                outfile << l << std::endl;
-            }
-            outfile.close();
+            sync_file();
             return true;
         }
 

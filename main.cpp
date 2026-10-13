@@ -295,78 +295,47 @@ bool execute(std::vector<command> commands) {
             return true;
         }
 
-
         if (commands[0].args[1] == "run") {
             if (commands[0].args.size() < 3) {
                 std::cout << "Usage: pigeon run <name> \"command\" " << std::endl;
                 return true;
             }
-            //TODO: switch to lambda
-            std::ifstream file(file_location);
-            std::string raw_command;
-            bool found = false;
-            while (getline(file, line)) {
-                size_t col_pos = line.find(':');
-                if (col_pos == std::string::npos) {
-                    continue;
-                }
-                if (commands[0].args[2] == line.substr(0, col_pos)) {
-                    found = true;
-                    raw_command = line.substr(col_pos + 1);
-                    std::vector<command> new_cmd;
-                    try {
-                        new_cmd = parser(raw_command);
-                        if (new_cmd.empty()) {
-                            continue;
-                        }
-                    }
-                    catch (const std::exception &e) {
-                        std::cout << e.what() << std::endl;
-                        continue;
-                    }
-                    return execute(new_cmd);
-                }
-            }
-            if (found == false) {
+            if (!pigeon_commands.contains(commands[0].args[2])) {
                 std::cout << "Command alias not found" << std::endl;
                 return true;
             }
-        }
-        if (commands[0].args[1] == "list") {
-            std::ifstream file(file_location);
-            if (!file) {
-                std::cout << "Can't open file" << std::endl;
+            std::vector<command> new_cmd;
+            try {
+                new_cmd = parser(pigeon_commands[commands[0].args[2]]);
+                if (new_cmd.empty()) {
+                    return true;
+                }
+            }
+            catch (std::runtime_error &e) {
+                std::cout << e.what() << std::endl;
                 return true;
             }
-            int i = 1;
-            while (getline(file, line)) {
-                std::cout << i << ". " << line << std::endl;
-                i++;
+            return execute(new_cmd);
+        }
+
+        if (commands[0].args[1] == "list") {
+            for (const auto& [name, command] : pigeon_commands) {
+                std::cout << name << ":" <<command << std::endl;
             }
             return true;
         }
+
         if (commands[0].args[1] == "delete") {
-            //TODO: switch to lambda
-            std::ifstream infile(file_location);
-            std::vector<std::string> temp_file_contents;
-            if (!infile) {
-                std::cout << "Can't open file" << std::endl;
+            if (commands[0].args.size() < 3) {
+                std::cout << "Usage: pigeon delete [name]" << std::endl;
                 return true;
             }
-            while (getline(infile, line)) {
-                size_t col_pos = line.find(':');
-                if (col_pos == std::string::npos || commands[0].args[2] == line.substr(0, col_pos)) {
-                    continue;
-                }
-                temp_file_contents.push_back(line);
+            if (!pigeon_commands.contains(commands[0].args[2])) {
+                std::cout << "Command alias not found" << std::endl;
+                return true;
             }
-            infile.close();
-
-            std::ofstream outfile(file_location);
-            for (const auto& l : temp_file_contents) {
-                outfile << l << std::endl;
-            }
-            outfile.close();
+            pigeon_commands.erase(commands[0].args[2]);
+            sync_file();
             return true;
         }
     }

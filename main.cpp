@@ -6,6 +6,7 @@
 
 #include "parser.h"
 #include "execute.h"
+#include "terminal.h"
 
 
 /*TODO:
@@ -18,7 +19,6 @@
     // TODO (Pigeon Command Arguments):
     // - In 'pigeon run <alias> [args...]': replace positional placeholders ($1, $2, ...) in the stored template.
     // - Re-feed the expanded string through parser() before invoking execute().
-
     // TODO (Shell Robustness & Error Handling):
     // - main(): Check std::cin stream state after getline(); terminate loop cleanly on EOF (Ctrl+D).
     // - execute(): Close open pipe ends in the parent process if fork() fails (returns -1) to prevent descriptor leaks.
@@ -29,11 +29,11 @@
     // - Inspect exit status in waitpid() via WIFEXITED and WEXITSTATUS macros.
 
 int main() {
-    std::string raw_input_data;
-
     while (true) {
-        std::cout << ">";
-        std::getline(std::cin, raw_input_data);
+        std::cout << ">" << std::flush;
+        // std::getline(std::cin, raw_input_data);
+        terminal_raw_mode terminal;
+        std::string raw_input_data = terminal.read_line();
         std::vector<command> commands;
 
         try {

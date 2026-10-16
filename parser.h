@@ -1,7 +1,6 @@
 //
 // Created by kacper on 10/14/26.
 //
-#pragma once
 
 #ifndef PIGEONCLI_PARSER_H
 #define PIGEONCLI_PARSER_H

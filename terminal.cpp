@@ -5,7 +5,7 @@
 #include "terminal.h"
 #include <unistd.h>
 #include <iostream>
-
+#include <array>
 //constructor disabling echo and canonical mode
 terminal_raw_mode::terminal_raw_mode() {
     //gets current console attributes
@@ -34,13 +34,17 @@ enum class arrow_key : char {
     LEFT = 'D'
 };
 
+
 std::string terminal_raw_mode::read_line() {
     std::string line;
     char byte;
     sequence_states state = sequence_states::NONE;
-
     size_t cursor_pos = 0;
+
+
     while (true) {
+        showvar(1, cursor_pos);
+        showvar(2,line.length());
         read(STDIN_FILENO, &byte, 1);
         //enter sends either \n or \r
         if (byte == '\n' || byte == '\r') {
@@ -54,7 +58,14 @@ std::string terminal_raw_mode::read_line() {
                 if (cursor_pos > 0) {
                     cursor_pos--;
                     std::cout << "\b \b" << std::flush;
-                    line.erase(cursor_pos);
+                    line.erase(cursor_pos,1);
+                    move_cursor(cursor_action::SAVE);
+                    //clears line from current cursor position
+                    std::cout<<"\033[0K"<<std::flush;
+                    for (size_t i = cursor_pos; i < line.length(); i++) {
+                        std::cout << line[i] <<std::flush;
+                    }
+                    move_cursor(cursor_action::LOAD);
                 }
             }
             continue;
@@ -63,6 +74,7 @@ std::string terminal_raw_mode::read_line() {
             state = sequence_states::SEQUENCE;
             continue;
         }
+        //state handling
         if (state == sequence_states::SEQUENCE) {
             switch (byte) {
                 case '[':
@@ -82,6 +94,7 @@ std::string terminal_raw_mode::read_line() {
             }
             continue;
         }
+        //arrow keys
         if (state == sequence_states::CSI) {
             state = sequence_states::NONE;
 
@@ -113,8 +126,63 @@ std::string terminal_raw_mode::read_line() {
             state = sequence_states::NONE;
             continue;
         }
-        cursor_pos++;
-        std::cout << byte << std::flush;
-        line += byte;
+        //TODO:
+        /*
+         * - deleting doesnt move characters (check why removing characters in middle of word makes rest of command not run)
+         * - moving to another line is really scuffed
+         * - make it somehow possible to check each variable value - external window/command/step-by-step
+         */
+        line.insert(cursor_pos, std::string(1, byte));
+        if (cursor_pos+1 < line.length()) {
+            std::cout<<line[cursor_pos]<<std::flush;
+            cursor_pos++;
+            move_cursor(cursor_action::SAVE);
+            for (size_t i = cursor_pos; i < line.length(); i++) {
+                std::cout << line[i] <<std::flush;
+            }
+            move_cursor(cursor_action::LOAD);
+        }
+        else {
+            std::cout<<byte<<std::flush;
+            cursor_pos++;
+        }
     }
 }
+
+void showvar(int pos, auto var) {
+    std::array<std::array<int,2>, 10> pos_array = {{
+        {1,20},
+        {2,20},
+        {3,20},
+        {4,20},
+        {5,20},
+        {6,20},
+        {7,20},
+        {8,20},
+        {9,20},
+        {10,20}
+    }};
+    move_cursor(cursor_action::SAVE);
+    move_cursor(pos_array[pos][0], pos_array[pos][1]);
+    std::cout<<var;
+    move_cursor(cursor_action::LOAD);
+}
+
+void move_cursor(int row,int col) {
+    std::cout<<"\x1b[";
+    std::cout<<row;
+    std::cout<<";";
+    std::cout<<col;
+    std::cout<<"H"<<std::flush;
+};
+void move_cursor(cursor_action action) {
+    if (action == cursor_action::SAVE) {
+        std::cout<<"\x1b[s"<<std::flush;
+        return;
+    }
+    if (action == cursor_action::LOAD) {
+        std::cout<<"\x1b[u"<<std::flush;
+        return;
+    }
+}
+

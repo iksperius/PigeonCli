@@ -10,6 +10,11 @@
 #include <string>
 #include <termios.h>
 
+enum cursor_action{
+    SAVE,
+    LOAD
+};
+
 class terminal_raw_mode {
 private:
     struct termios orig_termios{};
@@ -18,6 +23,8 @@ public:
     ~terminal_raw_mode();
     std::string read_line();
 };
-
+void showvar(int pos, auto var);
+void move_cursor(int row,int col);
+void move_cursor(cursor_action action);
 
 #endif //PIGEONCLI_TERMINAL_H

@@ -13,6 +13,8 @@
 #include "pigeon.h"
 #include "execute.h"
 
+#include <cstring>
+
 
 bool execute(std::vector<command> commands) {
     if (commands[0].args[0] == "exit") {
@@ -115,7 +117,10 @@ bool execute(std::vector<command> commands) {
             }
 
             //running command
-            execvp(argv[0], argv.data());
+            if (execvp(argv[0], argv.data()) == -1) {
+                std::cout << "Unknown command: " << argv[0] << std::endl;
+                // std::cout << std::strerror(errno) << std::endl;
+            }
             exit(1);
         }
 

@@ -23,8 +23,8 @@ public:
     ~terminal_raw_mode();
     std::string read_line();
 };
-void showvar(int pos, auto var);
 void move_cursor(int row,int col);
 void move_cursor(cursor_action action);
+std::array<int ,2> get_cursor_pos();
 
 #endif //PIGEONCLI_TERMINAL_H

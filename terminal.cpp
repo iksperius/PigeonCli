@@ -3,9 +3,11 @@
 //
 
 #include "terminal.h"
+#include "debug.h"
+
 #include <unistd.h>
 #include <iostream>
-#include <array>
+#include <sys/ioctl.h>
 //constructor disabling echo and canonical mode
 terminal_raw_mode::terminal_raw_mode() {
     //gets current console attributes
@@ -23,7 +25,9 @@ terminal_raw_mode::~terminal_raw_mode() {
 enum sequence_states {
     NONE,
     SEQUENCE,
+    //screen
     CSI,
+    //terminal
     OSC,
     SS3
 };
@@ -34,17 +38,29 @@ enum class arrow_key : char {
     LEFT = 'D'
 };
 
+struct winsize ws;
 
 std::string terminal_raw_mode::read_line() {
     std::string line;
     char byte;
     sequence_states state = sequence_states::NONE;
+    //start at 1 cuz >
     size_t cursor_pos = 0;
 
 
     while (true) {
-        showvar(1, cursor_pos);
-        showvar(2,line.length());
+        std::array<int, 2> abs_cursor_pos = get_cursor_pos();
+        //reading terminal window size
+        ioctl(STDIN_FILENO, TIOCGWINSZ, &ws);
+        //debug stuff
+        // debug_show_var(1, cursor_pos);
+        // debug_show_var(2,line.length());
+        // debug_show_var(3,ws.ws_col);
+        // debug_show_var(4,ws.ws_row);
+        // debug_show_var(5, get_cursor_pos()[0]);
+        debug_show_var(6, abs_cursor_pos[1]);
+
+        //reading bytes from keyboard input
         read(STDIN_FILENO, &byte, 1);
         //enter sends either \n or \r
         if (byte == '\n' || byte == '\r') {
@@ -105,14 +121,31 @@ std::string terminal_raw_mode::read_line() {
                     break;
                 case arrow_key::RIGHT:
                     if (cursor_pos < line.length()) {
+                        // if (get_cursor_pos()[1] >= ws.ws_col) {
+                        //     //"\x1b[S" - scrolls down
+                        //     std::cout<< "\x1b[E" << std::flush;
+                        // }
                         cursor_pos++;
                         std::cout << "\033[C" << std::flush;
+                    }
+                    else {
+                        //beep
+                        std::cout<<"\07" <<std::flush;
                     }
                     break;
                 case arrow_key::LEFT:
                     if (cursor_pos > 0) {
                         cursor_pos--;
                         std::cout << "\033[D" << std::flush;
+                    }
+                    else {
+                        // if (get_cursor_pos()[1] <= 0) {
+                        //     std::cout<< "\x1b[F" << std::flush;
+                        // }
+                        // else {
+                        //     //beep
+                        //     std::cout<<"\07" <<std::flush;
+                        // }
                     }
                     break;
             }
@@ -127,10 +160,7 @@ std::string terminal_raw_mode::read_line() {
             continue;
         }
         //TODO:
-        /*
-         * - deleting doesnt move characters (check why removing characters in middle of word makes rest of command not run)
-         * - moving to another line is really scuffed
-         * - make it somehow possible to check each variable value - external window/command/step-by-step
+        /* - moving to another line is really scuffed
          */
         line.insert(cursor_pos, std::string(1, byte));
         if (cursor_pos+1 < line.length()) {
@@ -149,25 +179,6 @@ std::string terminal_raw_mode::read_line() {
     }
 }
 
-void showvar(int pos, auto var) {
-    std::array<std::array<int,2>, 10> pos_array = {{
-        {1,20},
-        {2,20},
-        {3,20},
-        {4,20},
-        {5,20},
-        {6,20},
-        {7,20},
-        {8,20},
-        {9,20},
-        {10,20}
-    }};
-    move_cursor(cursor_action::SAVE);
-    move_cursor(pos_array[pos][0], pos_array[pos][1]);
-    std::cout<<var;
-    move_cursor(cursor_action::LOAD);
-}
-
 void move_cursor(int row,int col) {
     std::cout<<"\x1b[";
     std::cout<<row;
@@ -184,5 +195,34 @@ void move_cursor(cursor_action action) {
         std::cout<<"\x1b[u"<<std::flush;
         return;
     }
+}
+/*TODO
+ * - fix this piece of shit
+ *      - gets random stuff from keyboard mixed in
+ *      - fix misleading names of cursor_pos and get_cursor_pos
+ *      - save get_cursor_pos to variable instead of rerunning
+ *      - add comments
+ *      - nvm it doesnt work at all
+ */
+std::array<int ,2> get_cursor_pos() {
+    std::array<int,2> cursor_pos = {};
+    std::cout<<"\033[6n"<<std::flush;
+    u_char byte;
+    char raw_cords[32];
+    read(STDIN_FILENO, &byte, 1);
+    int i = 0;
+    while (byte != 'R') {
+        debug_breakpoint();
+        debug_show_var(4,byte);
+        if (i > 31) {
+            break;
+        }
+        raw_cords[i] = byte;
+        i++;
+        read(STDIN_FILENO, &byte, 1);
+    }
+    raw_cords[i] = '\0';
+    sscanf(raw_cords, "\033[%d;%d",&cursor_pos[0], &cursor_pos[1]);;
+    return cursor_pos;
 }
 

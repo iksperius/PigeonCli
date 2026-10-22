@@ -12,4 +12,5 @@ add_executable(PigeonCli main.cpp
         execute.h
         pigeon.cpp
         pigeon.h
+        debug.h
 )

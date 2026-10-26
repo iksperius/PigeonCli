@@ -64,6 +64,7 @@ bool execute(std::vector<command> commands) {
         // < 0 -> no child created
         if (p_id < 0) {
             std::cout << "Child not created" << std::endl;
+            close(in_fd);
         }
         // == 0 -> child process
         else if (p_id == 0) {
@@ -135,6 +136,7 @@ bool execute(std::vector<command> commands) {
 
             pids.push_back(p_id);
         }
+
     }
     //waiting for all child processes to finish
     for (pid_t p_id: pids) {

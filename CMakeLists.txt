@@ -13,4 +13,6 @@ add_executable(PigeonCli main.cpp
         pigeon.cpp
         pigeon.h
         debug.h
+        ansi_esc_helper.h
+        ansi_esc_helper.cpp
 )

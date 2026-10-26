@@ -11,6 +11,7 @@
 #include <iostream>
 #include <unistd.h>
 
+#include "ansi_esc_helper.h"
 #include "terminal.h"
 
 void debug_show_var(int pos, auto var) {

@@ -55,7 +55,7 @@ bool handle_pigeon(std::vector<command> commands) {
 
 
         if (commands[0].args[1] == "save") {
-            if (commands[0].args.size() < 3) {
+            if (commands[0].args.size() < 4) {
                 std::cout << "Usage: pigeon save <name> \"command\" " << std::endl;
                 return true;
             }
@@ -112,4 +112,5 @@ bool handle_pigeon(std::vector<command> commands) {
             sync_file();
             return true;
         }
+    return false;
 };

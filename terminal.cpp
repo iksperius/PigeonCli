@@ -10,6 +10,13 @@
 #include <sys/ioctl.h>
 
 #include "ansi_esc_helper.h"
+
+/*TODO:
+*  - track absolute cursor position (mostly done)
+*  - track cursor position in command
+ */
+
+
 //constructor disabling echo and canonical mode
 terminal_raw_mode::terminal_raw_mode() {
     //gets current console attributes
@@ -43,13 +50,16 @@ enum class arrow_key : char {
 
 static struct winsize ws;
 static size_t cmd_len = 0;
-static std::array<size_t, 2> cursor_pos{};
+static size_t cmd_pos = 0;
+// static std::array<size_t, 2> cursor_pos{};
+static CursorPos cursor_pos = CursorPos();
 
-std::array<size_t ,2> get_cursor_pos() {
+CursorPos get_cursor_pos() {
     return cursor_pos;
 };
-void set_cursor_pos(std::array<size_t, 2> pos) {
-    cursor_pos = pos;
+void set_cursor_pos(const CursorPos pos) {
+    cursor_pos.x = pos.x;
+    cursor_pos.y = pos.y;
 };
 
 
@@ -62,18 +72,15 @@ std::string terminal_raw_mode::read_line() {
         //reading terminal window size
         ioctl(STDIN_FILENO, TIOCGWINSZ, &ws);
         //debug stuff
-        // debug_show_var(1, cmd_len);
-        // debug_show_var(2,line.length());
-        // debug_show_var(3,ws.ws_col);
-        // debug_show_var(4,ws.ws_row);
-        // debug_show_var(5, get_cursor_pos()[0]);
-        // debug_show_var(6, abs_cursor_pos[1]);
+        debug::show_var(1, cmd_len);
+
 
         //reading bytes from keyboard input
         read(STDIN_FILENO, &byte, 1);
         //enter sends either \n or \r
         if (byte == '\n' || byte == '\r') {
             std::cout << "\r\n" <<std::flush;
+            cmd_len = 0;
             return line;
         }
         //backspace sends either code 127 or \b
@@ -84,13 +91,13 @@ std::string terminal_raw_mode::read_line() {
                     cmd_len--;
                     std::cout << "\b \b" << std::flush;
                     line.erase(cmd_len,1);
-                    move_cursor(cursor_action::SAVE);
+                    ansi::move_cursor(ansi::cursor_action::SAVE);
                     //clears line from current cursor position
-                    ansi_clear_from_cur_pos();
+                    ansi::clear_from_cur_pos();
                     for (size_t i = cmd_len; i < line.length(); i++) {
                         std::cout << line[i] <<std::flush;
                     }
-                    move_cursor(cursor_action::LOAD);
+                    ansi::move_cursor(ansi::cursor_action::LOAD);
                 }
             }
             continue;
@@ -129,23 +136,23 @@ std::string terminal_raw_mode::read_line() {
                 case arrow_key::DOWN:
                     break;
                 case arrow_key::RIGHT:
-                    if (cmd_len < line.length()) {
+                    if (cmd_pos < line.length()) {
+                        //TODO: switch to new line if cursor_pos.x == ws.ws_col
                         // if (get_cursor_pos()[1] >= ws.ws_col) {
                         //     //"\x1b[S" - scrolls down
                         //     std::cout<< "\x1b[E" << std::flush;
                         // }
-                        cmd_len++;
-                        ansi_move_cursor(RIGHT);
+                        cmd_pos++;
+                        ansi::move_cursor(ansi::RIGHT);
                     }
                     else {
-                        //beep
-                        std::cout<<"\07" <<std::flush;
+                        ansi::beep();
                     }
                     break;
                 case arrow_key::LEFT:
                     if (cmd_len > 0) {
-                        cmd_len--;
-                        ansi_move_cursor(LEFT);
+                        //TODO: switch to new line if cursor_pos.x == 0
+                        ansi::move_cursor(ansi::LEFT);
                     }
                     else {
                         // if (get_cursor_pos()[1] <= 0) {
@@ -175,11 +182,11 @@ std::string terminal_raw_mode::read_line() {
         if (cmd_len+1 < line.length()) {
             std::cout<<line[cmd_len]<<std::flush;
             cmd_len++;
-            move_cursor(cursor_action::SAVE);
+            ansi::move_cursor(ansi::SAVE);
             for (size_t i = cmd_len; i < line.length(); i++) {
                 std::cout << line[i] <<std::flush;
             }
-            move_cursor(cursor_action::LOAD);
+            ansi::move_cursor(ansi::LOAD);
         }
         else {
             std::cout<<byte<<std::flush;

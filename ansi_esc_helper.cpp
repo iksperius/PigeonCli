@@ -6,55 +6,55 @@
 #include <iostream>
 #include <ostream>
 #include "terminal.h"
-void ansi_clear_from_cur_pos() {
+namespace ansi {
+void clear_from_cur_pos() {
     std::cout<<"\033[0K"<<std::flush;
 }
 
-void ansi_move_cursor(const direction direction) {
+void move_cursor(const direction direction) {
+    CursorPos cursor_pos = get_cursor_pos();
     switch (direction) {
         case UP:
             std::cout<<"\033[A"<<std::flush;
-            set_cursor_pos({get_cursor_pos()[0], get_cursor_pos()[1]  + 1});
+            cursor_pos.y += 1;
             break;
         case DOWN:
             std::cout<<"\033[B"<<std::flush;
-            set_cursor_pos({get_cursor_pos()[0] + 1, get_cursor_pos()[1] - 1});
+            cursor_pos.y -= 1;
             break;
         case RIGHT:
             std::cout<<"\033[C"<<std::flush;
-            set_cursor_pos({get_cursor_pos()[0] + 1, get_cursor_pos()[1]});
+            cursor_pos.x += 1;
             break;
         case LEFT:
             std::cout<<"\033[D"<<std::flush;
-            set_cursor_pos({get_cursor_pos()[0] - 1, get_cursor_pos()[1]});
+            cursor_pos.x -= 1;
             break;
     }
+    set_cursor_pos(cursor_pos);
 }
 void move_cursor(size_t row,size_t col) {
     std::cout<<"\x1b[" << row << ";" << col << "H"<<std::flush;
-    set_cursor_pos({row, col});
+    set_cursor_pos(CursorPos(row,col));
 };
 void move_cursor(cursor_action action) {
+    CursorPos cursor_pos_buffer{};
     if (action == cursor_action::SAVE) {
         std::cout<<"\x1b[s"<<std::flush;
+        cursor_pos_buffer = get_cursor_pos();
         return;
     }
     if (action == cursor_action::LOAD) {
+        set_cursor_pos(cursor_pos_buffer);
         std::cout<<"\x1b[u"<<std::flush;
         return;
     }
 }
-void move_cursor(direction direction) {
-
+void beep() {
+    std::cout<<"\07" <<std::flush;
 }
-
 /*TODO
- * - fix this piece of shit
- *      - gets random stuff from keyboard mixed in
- *      - fix misleading names of cursor_pos and get_cursor_pos
- *      - save get_cursor_pos to variable instead of rerunning
- *      - add comments
- *      - nvm it doesnt work at all
+ * - constantly track cursor position instead of outputing it when needed (prevents miskeyboard imputs)
  */
 // inline std::array<int ,2> get_cursor_pos() {
 //     std::array<int,2> cursor_pos = {};
@@ -77,3 +77,5 @@ void move_cursor(direction direction) {
 //     sscanf(raw_cords, "\033[%d;%d",&cursor_pos[0], &cursor_pos[1]);;
 //     return cursor_pos;
 // }
+
+}

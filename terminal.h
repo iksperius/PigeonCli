@@ -18,10 +18,15 @@ public:
     terminal_raw_mode();
     ~terminal_raw_mode();
     std::string read_line();
+
 };
 //row/col
-std::array<size_t ,2> get_cursor_pos();
-void set_cursor_pos(std::array<size_t, 2> pos);
+struct CursorPos {
+    size_t x;
+    size_t y;
+};
+CursorPos get_cursor_pos();
+void set_cursor_pos(CursorPos pos);
 
 
 #endif //PIGEONCLI_TERMINAL_H

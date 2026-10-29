@@ -13,7 +13,6 @@
 
 /*TODO:
 *  - track absolute cursor position (mostly done)
-*  - track cursor position in command
  */
 
 
@@ -49,7 +48,6 @@ enum class arrow_key : char {
 };
 
 static struct winsize ws;
-static size_t cmd_len = 0;
 static size_t cmd_pos = 0;
 // static std::array<size_t, 2> cursor_pos{};
 static CursorPos cursor_pos = CursorPos();
@@ -72,7 +70,8 @@ std::string terminal_raw_mode::read_line() {
         //reading terminal window size
         ioctl(STDIN_FILENO, TIOCGWINSZ, &ws);
         //debug stuff
-        debug::show_var(1, cmd_len);
+        debug::show_var(2, line.length());
+        debug::show_var(3, cmd_pos);
 
 
         //reading bytes from keyboard input
@@ -80,21 +79,20 @@ std::string terminal_raw_mode::read_line() {
         //enter sends either \n or \r
         if (byte == '\n' || byte == '\r') {
             std::cout << "\r\n" <<std::flush;
-            cmd_len = 0;
+            cmd_pos = 0;
             return line;
         }
         //backspace sends either code 127 or \b
         if (byte == '\b' || byte == 127) {
             if (!line.empty()) {
                 // moves back cursor, prints ' ' and moves back cursor again
-                if (cmd_len > 0) {
-                    cmd_len--;
+                if (!line.empty()) {
+                    cmd_pos--;
                     std::cout << "\b \b" << std::flush;
-                    line.erase(cmd_len,1);
-                    ansi::move_cursor(ansi::cursor_action::SAVE);
-                    //clears line from current cursor position
+                    line.erase(cmd_pos,1);
                     ansi::clear_from_cur_pos();
-                    for (size_t i = cmd_len; i < line.length(); i++) {
+                    ansi::move_cursor(ansi::cursor_action::SAVE);
+                    for (size_t i = cmd_pos; i < line.length(); i++) {
                         std::cout << line[i] <<std::flush;
                     }
                     ansi::move_cursor(ansi::cursor_action::LOAD);
@@ -121,7 +119,6 @@ std::string terminal_raw_mode::read_line() {
                 default:
                     state = sequence_states::NONE;
                     std::cout << byte <<std::flush;
-                    cmd_len++;
                     break;
             }
             continue;
@@ -150,8 +147,9 @@ std::string terminal_raw_mode::read_line() {
                     }
                     break;
                 case arrow_key::LEFT:
-                    if (cmd_len > 0) {
+                    if (cmd_pos > 0) {
                         //TODO: switch to new line if cursor_pos.x == 0
+                        cmd_pos--;
                         ansi::move_cursor(ansi::LEFT);
                     }
                     else {
@@ -178,19 +176,19 @@ std::string terminal_raw_mode::read_line() {
         //TODO:
         /* - moving to another line is really scuffed
          */
-        line.insert(cmd_len, std::string(1, byte));
-        if (cmd_len+1 < line.length()) {
-            std::cout<<line[cmd_len]<<std::flush;
-            cmd_len++;
+        line.insert(cmd_pos, std::string(1, byte));
+        if (cmd_pos+1 < line.length()) {
+            std::cout<<line[cmd_pos]<<std::flush;
+            cmd_pos++;
             ansi::move_cursor(ansi::SAVE);
-            for (size_t i = cmd_len; i < line.length(); i++) {
+            for (size_t i = cmd_pos; i < line.length(); i++) {
                 std::cout << line[i] <<std::flush;
             }
             ansi::move_cursor(ansi::LOAD);
         }
         else {
             std::cout<<byte<<std::flush;
-            cmd_len++;
+            cmd_pos++;
         }
     }
 }

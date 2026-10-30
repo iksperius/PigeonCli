@@ -17,13 +17,15 @@ private:
 public:
     terminal_raw_mode();
     ~terminal_raw_mode();
-    std::string read_line();
+    static std::string read_line();
 
 };
-//row/col
+//we could change this to instead tracking only cmd_len -> length of whole command and then modulo is by ws.col, this way we dont have to track 2 mostly same variables independently
 struct CursorPos {
-    size_t x;
-    size_t y;
+    size_t x = 1;
+    //TODO: unused, can change to CursorPosX as we wont track y anyway
+
+    size_t y = 0;
 };
 CursorPos get_cursor_pos();
 void set_cursor_pos(CursorPos pos);

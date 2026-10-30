@@ -47,7 +47,7 @@ enum class arrow_key : char {
     LEFT = 'D'
 };
 
-static struct winsize ws;
+static winsize ws;
 static size_t cmd_pos = 0;
 // static std::array<size_t, 2> cursor_pos{};
 static CursorPos cursor_pos = CursorPos();
@@ -72,7 +72,8 @@ std::string terminal_raw_mode::read_line() {
         //debug stuff
         debug::show_var(2, line.length());
         debug::show_var(3, cmd_pos);
-
+        debug::show_var(4, get_cursor_pos().x);
+        debug::show_var(5, ws.ws_col);
 
         //reading bytes from keyboard input
         read(STDIN_FILENO, &byte, 1);
@@ -80,6 +81,7 @@ std::string terminal_raw_mode::read_line() {
         if (byte == '\n' || byte == '\r') {
             std::cout << "\r\n" <<std::flush;
             cmd_pos = 0;
+            cursor_pos.x = 1;
             return line;
         }
         //backspace sends either code 127 or \b
@@ -88,6 +90,7 @@ std::string terminal_raw_mode::read_line() {
                 // moves back cursor, prints ' ' and moves back cursor again
                 if (!line.empty()) {
                     cmd_pos--;
+                    cursor_pos.x--;
                     std::cout << "\b \b" << std::flush;
                     line.erase(cmd_pos,1);
                     ansi::clear_from_cur_pos();
@@ -132,36 +135,35 @@ std::string terminal_raw_mode::read_line() {
                     break;
                 case arrow_key::DOWN:
                     break;
-                case arrow_key::RIGHT:
+                case arrow_key::RIGHT: {
                     if (cmd_pos < line.length()) {
-                        //TODO: switch to new line if cursor_pos.x == ws.ws_col
-                        // if (get_cursor_pos()[1] >= ws.ws_col) {
-                        //     //"\x1b[S" - scrolls down
-                        //     std::cout<< "\x1b[E" << std::flush;
-                        // }
+                        if (get_cursor_pos().x == ws.ws_col) {
+                            cmd_pos++;
+                            cursor_pos.x = 0;
+                            ansi::move_line(ansi::DOWN, ws.ws_col);
+                            break;
+                        }
                         cmd_pos++;
                         ansi::move_cursor(ansi::RIGHT);
+                        break;
                     }
-                    else {
-                        ansi::beep();
-                    }
-                    break;
+                    ansi::beep();
+                }
+                break;
                 case arrow_key::LEFT:
-                    if (cmd_pos > 0) {
-                        //TODO: switch to new line if cursor_pos.x == 0
+                if (cmd_pos > 0) {
+                    if (get_cursor_pos().x == 0) {
                         cmd_pos--;
-                        ansi::move_cursor(ansi::LEFT);
+                        cursor_pos.x = ws.ws_col - 1;
+                        ansi::move_line(ansi::UP, ws.ws_col);
+                        break;
                     }
-                    else {
-                        // if (get_cursor_pos()[1] <= 0) {
-                        //     std::cout<< "\x1b[F" << std::flush;
-                        // }
-                        // else {
-                        //     //beep
-                        //     std::cout<<"\07" <<std::flush;
-                        // }
-                    }
+                    cmd_pos--;
+                    ansi::move_cursor(ansi::LEFT);
                     break;
+                }
+                ansi::beep();
+                break;
             }
             continue;
         }
@@ -179,6 +181,7 @@ std::string terminal_raw_mode::read_line() {
         line.insert(cmd_pos, std::string(1, byte));
         if (cmd_pos+1 < line.length()) {
             std::cout<<line[cmd_pos]<<std::flush;
+            cursor_pos.x++;
             cmd_pos++;
             ansi::move_cursor(ansi::SAVE);
             for (size_t i = cmd_pos; i < line.length(); i++) {
@@ -187,6 +190,10 @@ std::string terminal_raw_mode::read_line() {
             ansi::move_cursor(ansi::LOAD);
         }
         else {
+            cursor_pos.x++;
+            if (cursor_pos.x == ws.ws_col) {
+                cursor_pos.x = 0;
+            }
             std::cout<<byte<<std::flush;
             cmd_pos++;
         }

@@ -33,19 +33,6 @@ namespace debug {
         std::cout<<var<<std::flush;
         ansi::move_cursor(ansi::cursor_action::LOAD);
     }
-    /*TODO:
-     * - breakpoint
-     */
-    void breakpoint() {
-        char byte;
-        read(STDIN_FILENO, &byte, 1);
-        while (byte != '\n' || byte != '\r') {
-            show_var(1,"STOP");
-            read(STDIN_FILENO, &byte, 1);
-        }
-    }
-
-
 }
 
 

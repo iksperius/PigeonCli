@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <unistd.h>
 
 #include "parser.h"
 #include "execute.h"
@@ -14,7 +15,6 @@
  *  - command not found
  *  - ctrl <key> actions <- implementing gnu readline
  *  - history (searching in history, start typing then press up and down to do backward and forward searches through my history for commands starting with what I've just typed)
- *  -
  */
     // TODO (Pigeon Command Arguments):
     // - In 'pigeon run <alias> [args...]': replace positional placeholders ($1, $2, ...) in the stored template.
@@ -31,7 +31,6 @@
 int main() {
     while (true) {
         std::cout << ">" << std::flush;
-        // std::getline(std::cin, raw_input_data);
         terminal_raw_mode terminal;
         std::string raw_input_data = terminal.read_line();
         std::vector<command> commands;

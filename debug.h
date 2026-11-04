@@ -14,22 +14,21 @@
 #include "ansi_esc_helper.h"
 #include "terminal.h"
 namespace debug {
+
     void show_var(int pos, auto var) {
-        std::array<std::array<int,2>, 10> pos_array = {{
-            {1,20},
-            {2,20},
-            {3,20},
-            {4,20},
-            {5,20},
-            {6,20},
-            {7,20},
-            {8,20},
-            {9,20},
-            {10,20}
-        }};
         ansi::move_cursor(ansi::cursor_action::SAVE);
-        ansi::move_cursor(pos_array[pos][0], pos_array[pos][1]);
-        std::cout<<"                "<<std::flush;
+        ansi::move_cursor(pos, 20);
+        std::cout<<"    "<<std::flush;
+        ansi::move_cursor(pos, 20);
+        std::cout<<var<<std::flush;
+        ansi::move_cursor(ansi::cursor_action::LOAD);
+    }
+    void show_var(int pos, auto var, std::string desc) {
+        ansi::move_cursor(ansi::cursor_action::SAVE);
+        ansi::move_cursor(pos, 20);
+        std::cout<<"    "<<std::flush;
+        std::cout<<desc<<std::flush;
+        ansi::move_cursor(pos, 20);
         std::cout<<var<<std::flush;
         ansi::move_cursor(ansi::cursor_action::LOAD);
     }

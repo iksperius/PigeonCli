@@ -21,6 +21,7 @@ terminal_raw_mode::terminal_raw_mode() {
     //sets attributes from raw struct
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
     std::cout<<"\033[?7l"<<std::flush;
+    std::cout<<"\033]0;PigeonCLI\07"<<std::flush;
 }
 //deconstructor setting previous console attributes
 terminal_raw_mode::~terminal_raw_mode() {
@@ -193,21 +194,19 @@ std::string terminal_raw_mode::read_line() {
         //insert typed letters
         line.insert(cmd_pos, std::string(1, byte));
         //insert letters mid line
-        /*TODO:
-         * - move characters to new line while inserting them mid through
-         */
         if (cmd_pos+1 < line.length()) {
-            cursor_pos.x++;
-            cmd_pos++;
+
             std::cout<<line[cmd_pos]<<std::flush;
             ansi::move_cursor(ansi::SAVE);
-            for (size_t i = cmd_pos; i < line.length(); i++) {
+            for (size_t i = cmd_pos+1; i < line.length(); i++) {
                 if (i == ws.ws_col) {
                     ansi::move_line(ansi::DOWN);
                 }
                 std::cout << line[i] <<std::flush;
             }
             ansi::move_cursor(ansi::LOAD);
+            cursor_pos.x++;
+            cmd_pos++;
         }
         else {
             //append letters at the end of line

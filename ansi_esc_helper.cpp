@@ -68,10 +68,22 @@ namespace ansi {
                 std::cout<<"\033["<<ws.ws_col<<"G"<< std::flush;
                 break;
             case DOWN:
-                std::cout<<"\033[E"<<std::flush;
+                std::cout<<"\n\r"<<std::flush;
                 break;
             default:
                 break;
             }
         }
+    void scroll(direction direction) {
+        switch (direction) {
+            case UP:
+                std::cout<<"\033[S"<<std::flush;
+                break;
+            case DOWN:
+                std::cout<<"\033[T"<<std::flush;
+                break;
+            default:
+                break;
+        }
+    }
     }

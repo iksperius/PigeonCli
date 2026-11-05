@@ -24,5 +24,6 @@ namespace ansi {
     void move_cursor(cursor_action action);
     void move_line(direction direction);
     void beep();
+    void scroll(direction direction);
 }
 #endif //PIGEONCLI_ANSI_ESC_HELPER_H

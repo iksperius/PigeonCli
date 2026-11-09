@@ -9,9 +9,6 @@
 #include <sys/ioctl.h>
 
 #include "terminal.h"
-/*TODO
- * - switch to dec private mode sequences
- */
 namespace ansi {
     void clear_from_cur_pos() {
         std::cout<<"\033[0J"<<std::flush;
@@ -66,9 +63,11 @@ namespace ansi {
             case UP:
                 std::cout<<"\033[F"<<std::flush;
                 std::cout<<"\033["<<ws.ws_col<<"G"<< std::flush;
+                set_cursor_pos(CursorPos(ws.ws_col,0));
                 break;
             case DOWN:
                 std::cout<<"\n\r"<<std::flush;
+                set_cursor_pos(CursorPos(0,0));
                 break;
             default:
                 break;

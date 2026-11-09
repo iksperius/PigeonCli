@@ -62,9 +62,6 @@ void set_cursor_pos(const CursorPos pos) {
 winsize get_ws() {
     return ws;
 }
-/*TODO
- *  - scroll when not enough space on bottom of the terminal
- */
 std::string terminal_raw_mode::read_line() {
     std::string line;
     char byte;
@@ -191,35 +188,33 @@ std::string terminal_raw_mode::read_line() {
             continue;
         }
 
-        //insert typed letters
-        line.insert(cmd_pos, std::string(1, byte));
-        //insert letters mid line
-        if (cmd_pos+1 < line.length()) {
-
-            std::cout<<line[cmd_pos]<<std::flush;
-            ansi::move_cursor(ansi::SAVE);
-            for (size_t i = cmd_pos+1; i < line.length(); i++) {
-                if (i == ws.ws_col) {
-                    ansi::move_line(ansi::DOWN);
-                }
-                std::cout << line[i] <<std::flush;
+        // insert typed character into the buffer
+        line.insert(cmd_pos, 1, byte);
+        constexpr size_t prompt_len = 1;
+        const size_t width = ws.ws_col > 0 ? ws.ws_col : 80;
+        // redraw everything from the new character to the end of the line
+        for (size_t i = cmd_pos; i < line.length(); i++) {
+            if (i != cmd_pos && (prompt_len + i) % width == 0) {
+                ansi::move_line(ansi::DOWN);
             }
-            ansi::move_cursor(ansi::LOAD);
-            cursor_pos.x++;
-            cmd_pos++;
+            std::cout << line[i];
+        }
+        std::cout << std::flush;
+        cmd_pos++;
+        const size_t target_row = (prompt_len + cmd_pos) / width;
+        const size_t target_col = (prompt_len + cmd_pos) % width;
+        const size_t current_row = (prompt_len + line.length() - 1) / width;
+        if (target_row > current_row) {
+            ansi::move_line(ansi::DOWN);
         }
         else {
-            //append letters at the end of line
-            if (cursor_pos.x == ws.ws_col) {
-                cursor_pos.x = 0;
-                ansi::move_line(ansi::DOWN);
-                std::cout<<byte<<std::flush;
+            for (size_t r = target_row; r < current_row; r++) {
+                ansi::move_cursor(ansi::UP);
             }
-            else {
-                std::cout<<byte<<std::flush;
-            }
-            cmd_pos++;
-            cursor_pos.x++;
+            std::cout << "\033[" << target_col + 1 << "G" << std::flush;
         }
+        cursor_pos.x = target_col;
+
+
     }
 }

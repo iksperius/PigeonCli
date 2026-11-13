@@ -27,6 +27,7 @@ struct CursorPos {
     size_t y = 0;
 };
 CursorPos get_cursor_pos();
+size_t get_cmd_pos();
 void set_cursor_pos(CursorPos pos);
 
 winsize get_ws();

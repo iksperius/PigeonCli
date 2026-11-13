@@ -15,4 +15,6 @@ add_executable(PigeonCli main.cpp
         debug.h
         ansi_esc_helper.h
         ansi_esc_helper.cpp
+        history.cpp
+        history.h
 )

@@ -10,9 +10,11 @@
 #include <sys/ioctl.h>
 
 #include "ansi_esc_helper.h"
+#include "history.h"
 
 //constructor disabling echo and canonical mode
 terminal_raw_mode::terminal_raw_mode() {
+    history::open_read();
     //gets current console attributes
     tcgetattr(STDIN_FILENO, &orig_termios);
     struct termios raw = orig_termios;
@@ -54,6 +56,9 @@ static CursorPos cursor_pos = CursorPos();
 CursorPos get_cursor_pos() {
     return cursor_pos;
 };
+size_t get_cmd_pos() {
+    return cmd_pos;
+}
 void set_cursor_pos(const CursorPos pos) {
     cursor_pos.x = pos.x;
     cursor_pos.y = pos.y;
@@ -84,6 +89,7 @@ std::string terminal_raw_mode::read_line() {
             std::cout << "\r\n" <<std::flush;
             cmd_pos = 0;
             cursor_pos.x = 1;
+            history::save()
             return line;
         }
 
@@ -143,8 +149,12 @@ std::string terminal_raw_mode::read_line() {
 
             switch (static_cast<arrow_key>(byte)) {
                 case arrow_key::UP:
+                    history::next();
+                    history::display();
                     break;
                 case arrow_key::DOWN:
+                    history::next();
+                    history::display();
                     break;
                 case arrow_key::RIGHT: {
                     if (cmd_pos < line.length()) {

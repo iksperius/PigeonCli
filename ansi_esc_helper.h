@@ -23,6 +23,7 @@ namespace ansi {
     void move_cursor(size_t row,size_t col);
     void move_cursor(cursor_action action);
     void move_line(direction direction);
+    void beginning_of_line();
     void beep();
     void scroll(direction direction);
 }

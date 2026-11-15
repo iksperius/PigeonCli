@@ -89,7 +89,7 @@ std::string terminal_raw_mode::read_line() {
             std::cout << "\r\n" <<std::flush;
             cmd_pos = 0;
             cursor_pos.x = 1;
-            history::save()
+            history::save(line);
             return line;
         }
 
@@ -153,7 +153,7 @@ std::string terminal_raw_mode::read_line() {
                     history::display();
                     break;
                 case arrow_key::DOWN:
-                    history::next();
+                    history::previous();
                     history::display();
                     break;
                 case arrow_key::RIGHT: {

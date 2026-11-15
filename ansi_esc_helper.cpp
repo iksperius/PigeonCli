@@ -85,4 +85,8 @@ namespace ansi {
                 break;
         }
     }
+
+    void beginning_of_line() {
+        std::cout<<"\r"<<std::flush;
     }
+}
